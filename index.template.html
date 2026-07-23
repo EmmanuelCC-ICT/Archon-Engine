@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Archon Engine</title>
+    <link rel="icon" href="data:," />
+    <link
+      rel="preload"
+      as="image"
+      href="assets/ui/archon/board-surface-frame.webp"
+      type="image/webp"
+      fetchpriority="high"
+    />
+    <link
+      rel="preload"
+      as="image"
+      href="assets/ui/archon/board-intro-door-left.webp"
+      type="image/webp"
+      fetchpriority="high"
+    />
+    <link
+      rel="preload"
+      as="image"
+      href="assets/ui/archon/board-intro-door-right.webp"
+      type="image/webp"
+      fetchpriority="high"
+    />
+    <style>
+{{INLINE_CSS}}
+    </style>
+  </head>
+  <body>
+    <script>
+      (function () {
+        if (!/index\.template\.html$/i.test(window.location.pathname)) {
+          return;
+        }
+
+        document.body.innerHTML =
+          '<main style="max-width:720px;margin:40px auto;padding:0 20px;font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;line-height:1.55;color:#111;">' +
+          '<h1 style="margin:0 0 12px;font-size:32px;">Open the built app, not the template</h1>' +
+          '<p style="margin:0 0 14px;">This file is only the HTML template used to build the real game. It still contains placeholder markers, so it will look broken if opened directly.</p>' +
+          '<p style="margin:0 0 14px;">Use <code>index.html</code> or run the local server and open <code>http://127.0.0.1:8765/</code>.</p>' +
+          '<p style="margin:0;">If the local server is already running, refresh that page instead of opening <code>index.template.html</code>.</p>' +
+          "</main>";
+      })();
+    </script>
+    <div class="app-shell archon-shell">
+      <div class="archon-layout">
+        <details class="hud-drawer hud-drawer--left" id="leftDrawer">
+          <summary class="hud-drawer__summary">
+            <strong class="hud-drawer__title">Remnant Command</strong>
+          </summary>
+          <aside class="hud-rail hud-rail--left" id="leftHudRail">
+            <section class="circuit-panel remnant-inspector-panel" id="remnantInspectorPanel">
+              <section id="remnantInspectorCard" class="detail-card detail-card--unit"></section>
+            </section>
+
+            <section class="circuit-panel command-dossier" id="commandRelayPanel">
+              <p class="command-dossier__eyebrow">Command Relay</p>
+              <h2 id="commandSideLabel">Turn of the Remnant</h2>
+              <p class="command-dossier__phase">
+                Phase:
+                <strong id="phaseValue">Deployment</strong>
+              </p>
+              <div class="phase-track" aria-hidden="true">
+                <span class="phase-track__node is-active" data-phase-node="board"></span>
+                <span class="phase-track__node" data-phase-node="battle"></span>
+                <span class="phase-track__node" data-phase-node="ethics"></span>
+              </div>
+              <div class="status-card status-card--command">
+                <div class="status-row">
+                  <span>Mode</span>
+                  <strong id="modeValue">Board</strong>
+                </div>
+                <div class="status-row">
+                  <span>Turn</span>
+                  <strong id="turnValue">The Remnant</strong>
+                </div>
+                <div class="status-row">
+                  <span>Selected</span>
+                  <strong id="selectedValue">None</strong>
+                </div>
+                <div class="status-row">
+                  <span>Health</span>
+                  <strong id="healthValue">-</strong>
+                </div>
+                <div class="status-row status-row--result">
+                  <span>Battle Result</span>
+                  <strong id="resultValue">Choose a Remnant unit to begin.</strong>
+                </div>
+              </div>
+            </section>
+
+            <button id="newGameButton" class="primary-button primary-button--campaign" type="button">
+              Begin New Campaign
+            </button>
+          </aside>
+        </details>
+
+        <main class="theater-core">
+          <div class="visually-hidden" aria-live="polite" aria-atomic="true">
+            <h1 id="appTitle">The Archon Engine</h1>
+            <p class="era-brief__eyebrow">Current Era</p>
+            <h2 id="eraTitle">Epoch IV: The Convergence</h2>
+            <p id="eraSummary">Rival ideologies press across the relay board.</p>
+          </div>
+
+          <section class="circuit-panel battlefield-panel" id="battlefieldPanel">
+            <div class="board-theater">
+              <div class="board-frame">
+                <div class="board-frame__midline" aria-hidden="true"></div>
+                <div id="board" class="board" aria-label="The Archon Engine board"></div>
+                <audio id="boardIntroMusicAudio" preload="metadata" hidden aria-hidden="true">
+                  <source src="assets/audio/gameboard-ritual_1.mp3" type="audio/mpeg" />
+                </audio>
+                <audio id="gameplayMusicAudio" preload="none" hidden aria-hidden="true"></audio>
+                <audio id="battleArenaMusicAudio" preload="none" hidden aria-hidden="true"></audio>
+                <audio id="boardUnlockAudio" preload="metadata" hidden aria-hidden="true">
+                  <source src="assets/audio/board-unlock.mp3" type="audio/mpeg" />
+                </audio>
+                <audio id="consequenceTileSelectAudio" preload="none" hidden aria-hidden="true">
+                  <source src="assets/audio/Tile_Select.mp3" type="audio/mpeg" />
+                </audio>
+                <audio id="aiSelectAudio" preload="none" hidden aria-hidden="true">
+                  <source src="assets/audio/Ai_Select.mp3" type="audio/mpeg" />
+                </audio>
+                <audio id="aiEthicalSelectionMusicAudio" preload="none" hidden aria-hidden="true">
+                  <source src="assets/audio/Ai_Selection_ST.mp3" type="audio/mpeg" />
+                </audio>
+                <audio id="humanSelectAudio" preload="none" hidden aria-hidden="true">
+                  <source src="assets/audio/Human_Select.mp3" type="audio/mpeg" />
+                </audio>
+                <audio id="humanEthicalSelectionMusicAudio" preload="none" hidden aria-hidden="true">
+                  <source src="assets/audio/Human_Selection_ST.mp3" type="audio/mpeg" />
+                </audio>
+                <audio id="humanShootAudio" preload="none" hidden aria-hidden="true">
+                  <source src="assets/audio/Human_Shoot.mp3" type="audio/mpeg" />
+                </audio>
+                <audio id="humanBattleStrikeAudio" preload="none" hidden aria-hidden="true">
+                  <source src="assets/audio/HumanBattle_Strike.mp3" type="audio/mpeg" />
+                </audio>
+                <audio id="aiShootAudio" preload="none" hidden aria-hidden="true">
+                  <source src="assets/audio/Ai_Shoot.mp3" type="audio/mpeg" />
+                </audio>
+                <audio id="aiBattleStrikeAudio" preload="none" hidden aria-hidden="true">
+                  <source src="assets/audio/AiBattle_Strike.mp3" type="audio/mpeg" />
+                </audio>
+                <audio id="sentinelFootstepsAudio" preload="none" hidden aria-hidden="true">
+                  <source src="assets/audio/sentinel-footsteps.mp3" type="audio/mpeg" />
+                </audio>
+                <audio id="droneHoverAudio" preload="none" hidden aria-hidden="true">
+                  <source src="assets/audio/drone-hover.mp3" type="audio/mpeg" />
+                </audio>
+                <audio id="interceptorWalkAudio" preload="none" hidden aria-hidden="true">
+                  <source src="assets/audio/Interceptor-walk.mp3" type="audio/mpeg" />
+                </audio>
+                <audio id="citadelWalkAudio" preload="none" hidden aria-hidden="true">
+                  <source src="assets/audio/citadel-walk.wav" type="audio/wav" />
+                </audio>
+                <audio id="pathfinderWalkAudio" preload="none" hidden aria-hidden="true">
+                  <source src="assets/audio/pathfinder-walk.wav" type="audio/wav" />
+                </audio>
+                <audio id="bulwarkWalkAudio" preload="none" hidden aria-hidden="true">
+                  <source src="assets/audio/bulwark-walk.wav" type="audio/wav" />
+                </audio>
+                <audio id="paragonWalkAudio" preload="none" hidden aria-hidden="true">
+                  <source src="assets/audio/Paragon-walk.mp3" type="audio/mpeg" />
+                </audio>
+                <audio id="freebornWalkAudio" preload="none" hidden aria-hidden="true">
+                  <source src="assets/audio/Freeborn_walk.mp3" type="audio/mpeg" />
+                </audio>
+                <audio id="oracleWalkAudio" preload="none" hidden aria-hidden="true">
+                  <source src="assets/audio/oracle-walk.mp3" type="audio/mpeg" />
+                </audio>
+                <audio id="vanguardWalkAudio" preload="none" hidden aria-hidden="true">
+                  <source src="assets/audio/vanguard-walk.mp3" type="audio/mpeg" />
+                </audio>
+                <audio id="nexusWalkAudio" preload="none" hidden aria-hidden="true">
+                  <source src="assets/audio/nexus-walk.wav" type="audio/wav" />
+                </audio>
+                <audio id="primeWalkAudio" preload="none" hidden aria-hidden="true">
+                  <source src="assets/audio/Prime_walk.mp3" type="audio/mpeg" />
+                </audio>
+                <div id="boardIntro" class="board-intro">
+                  <div class="board-intro__door board-intro__door--left" aria-hidden="true"></div>
+                  <div class="board-intro__door board-intro__door--right" aria-hidden="true"></div>
+                  <button
+                    id="boardIntroSeal"
+                    class="board-intro__seal"
+                    type="button"
+                    aria-label="Unlock the Archon Engine board"
+                  >
+                    <span class="visually-hidden">Unlock the Archon Engine board</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="board-footer">
+              <p>Captures do not resolve on the board. They ignite a live arena duel for control of the square.</p>
+              <p class="board-footer__controls">
+                <strong>Board</strong> click a Remnant unit, then click a highlighted destination.
+                <strong>Arena</strong> move with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows, attack with <kbd>Space</kbd>.
+              </p>
+            </div>
+
+            <div class="board-bottom-banner" aria-hidden="true">
+              <img class="board-bottom-banner__image" src="assets/ui/archon/board-bottom-banner.webp" alt="" />
+            </div>
+          </section>
+        </main>
+
+        <details class="hud-drawer hud-drawer--right" id="rightDrawer">
+          <summary class="hud-drawer__summary">
+            <strong class="hud-drawer__title">Consensus Intel</strong>
+          </summary>
+          <aside class="hud-rail hud-rail--right status-panel" id="rightHudRail">
+            <section class="circuit-panel consensus-inspector-panel" id="consensusInspectorPanel">
+              <section id="consensusInspectorCard" class="detail-card detail-card--unit"></section>
+            </section>
+
+            <section class="circuit-panel intel-panel" id="operativePanel">
+              <header class="intel-panel__header">
+                <h2>Active Operative</h2>
+                <p>Selected unit and consequence context.</p>
+              </header>
+              <section id="selectedCard" class="detail-card detail-card--unit"></section>
+            </section>
+
+          </aside>
+        </details>
+      </div>
+    </div>
+
+    <section id="battleOverlay" class="battle-overlay hidden" aria-live="polite">
+      <div class="battle-shell">
+        <div class="battle-copy">
+          <p class="eyebrow">Arena Lock</p>
+          <h2 id="battleTitle">Contested Square</h2>
+          <p id="battlePrompt" class="battle-prompt">
+            Pilot the Remnant fighter and hold the square.
+          </p>
+        </div>
+
+        <div class="battle-stage">
+          <div class="battle-stage__viewport">
+            <canvas id="battleCanvas" width="1200" height="480"></canvas>
+          </div>
+        </div>
+        <div class="battle-hud">
+          <div class="battle-fighter">
+            <span class="battle-label">Remnant Fighter</span>
+            <strong id="battlePlayerLabel">Awaiting duel</strong>
+            <div class="battle-meter">
+              <span id="battlePlayerBar"></span>
+            </div>
+            <span id="battlePlayerHealth" class="battle-health">-</span>
+          </div>
+          <div class="battle-fighter battle-fighter--enemy">
+            <span class="battle-label">Consensus Fighter</span>
+            <strong id="battleEnemyLabel">Awaiting duel</strong>
+            <div class="battle-meter">
+              <span id="battleEnemyBar"></span>
+            </div>
+            <span id="battleEnemyHealth" class="battle-health">-</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="ethicalOverlay" class="ethical-overlay hidden" aria-live="polite">
+      <div class="ethical-shell">
+        <div class="ethical-copy">
+          <p class="eyebrow">Ethical Codex</p>
+          <h2 id="ethicalTitle">Captured Square</h2>
+          <p id="ethicalPrompt" class="ethical-prompt">
+            Access the Ethical Codex. Draw 3 tiles, choose 1, discard 2.
+          </p>
+          <div id="ethicalControls" class="ethical-controls" hidden>
+            <button
+              id="ethicalAdvanceButton"
+              class="primary-button ethical-advance ethical-advance--consensus"
+              type="button"
+              aria-label="Click the CONSENSUS ICON to reveal their choice"
+              title="Click the CONSENSUS ICON to reveal their choice"
+            >
+              <img
+                id="ethicalAdvanceIcon"
+                class="ethical-advance__icon"
+                src="assets/ui/archon/consensus-ai-side-alpha.webp"
+                alt=""
+                aria-hidden="true"
+                loading="eager"
+                decoding="async"
+              />
+              <span id="ethicalAdvanceLabel" class="visually-hidden">Click the CONSENSUS ICON to reveal their choice</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="ethicalChoices" class="ethical-choices"></div>
+      </div>
+    </section>
+
+    <section id="ethicalNotification" class="ethical-notification hidden" aria-live="polite">
+      <div id="ethicalNotificationCard" class="ethical-notification__card">
+        <p class="eyebrow">Ethical Cluster</p>
+        <h3 id="ethicalNotificationTitle">Ethical Cluster</h3>
+        <p id="ethicalNotificationMessage"></p>
+      </div>
+    </section>
+
+    <script>
+{{INLINE_JS}}
+    </script>
+  </body>
+</html>

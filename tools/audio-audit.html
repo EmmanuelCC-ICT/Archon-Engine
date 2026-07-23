@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Archon Audio Audit</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: "SF Mono", SFMono-Regular, ui-monospace, Menlo, Monaco, Consolas, monospace;
+        background: #12151c;
+        color: #edf2f7;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at top left, rgba(99, 179, 237, 0.18), transparent 32%),
+          radial-gradient(circle at top right, rgba(237, 137, 54, 0.14), transparent 28%),
+          #12151c;
+      }
+
+      main {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 24px 20px 40px;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: clamp(1.7rem, 3vw, 2.4rem);
+      }
+
+      p {
+        margin: 0 0 18px;
+        max-width: 70ch;
+        color: #cbd5e0;
+        line-height: 1.5;
+      }
+
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        border: 1px solid rgba(148, 163, 184, 0.24);
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.7);
+        color: #e2e8f0;
+        font-size: 0.95rem;
+      }
+
+      .status::before {
+        content: "";
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: #f6ad55;
+        box-shadow: 0 0 18px rgba(246, 173, 85, 0.65);
+      }
+
+      .status[data-state="done"]::before {
+        background: #68d391;
+        box-shadow: 0 0 18px rgba(104, 211, 145, 0.65);
+      }
+
+      .status[data-state="error"]::before {
+        background: #fc8181;
+        box-shadow: 0 0 18px rgba(252, 129, 129, 0.65);
+      }
+
+      pre {
+        margin: 20px 0 0;
+        padding: 18px;
+        border-radius: 18px;
+        background: rgba(9, 12, 18, 0.86);
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.38);
+        overflow: auto;
+        white-space: pre;
+        line-height: 1.45;
+        font-size: 0.9rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Archon Audio Audit</h1>
+      <p>
+        Measures active RMS and peak levels in the browser with Web Audio, then combines those readings with the current
+        in-game playback multipliers to flag loud and quiet outliers.
+      </p>
+      <div id="status" class="status" data-state="running">Running asset analysis...</div>
+      <pre id="output">Preparing analysis…</pre>
+    </main>
+    <script>
+      (async function runAudioAudit() {
+        const assets = [
+          { key: "board_intro_music", label: "Board Intro Music", path: "../assets/audio/gameboard-ritual_1.mp3", volume: 0.55, category: "music" },
+          { key: "gameplay_1", label: "Gameplay 1", path: "../assets/audio/Gameplay_1.mp3", volume: 0.58, category: "music" },
+          { key: "gameplay_2", label: "Gameplay 2", path: "../assets/audio/Gameplay_2.mp3", volume: 0.58, category: "music" },
+          { key: "gameplay_3", label: "Gameplay 3", path: "../assets/audio/Gameplay_3.mp3", volume: 0.58, category: "music" },
+          { key: "battle_music", label: "Battle Arena Music", path: "../assets/audio/BattleArena_1.mp3", volume: 0.08, category: "music" },
+          { key: "ai_ethics_music", label: "AI Ethical Selection Music", path: "../assets/audio/Ai_Selection_ST.mp3", volume: 0.18, category: "music" },
+          { key: "human_ethics_music", label: "Human Ethical Selection Music", path: "../assets/audio/Human_Selection_ST.mp3", volume: 1, category: "music" },
+          { key: "board_unlock", label: "Board Unlock", path: "../assets/audio/board-unlock.mp3", volume: 1, category: "ui_sfx" },
+          { key: "tile_select", label: "Consequence Tile Select", path: "../assets/audio/Tile_Select.mp3", volume: 0.54, category: "ui_sfx" },
+          { key: "ai_select_tail", label: "AI Advance Select (tail)", path: "../assets/audio/Ai_Select.mp3", volume: 0.21, category: "ui_sfx", tailSeconds: 1 },
+          { key: "human_select", label: "Human Ethical Select", path: "../assets/audio/Human_Select.mp3", volume: 1, category: "ui_sfx" },
+          { key: "human_shoot", label: "Human Shoot", path: "../assets/audio/Human_Shoot.mp3", volume: 0.2, category: "battle_sfx" },
+          { key: "ai_shoot", label: "AI Shoot", path: "../assets/audio/Ai_Shoot.mp3", volume: 0.2, category: "battle_sfx" },
+          { key: "human_strike", label: "Human Battle Strike", path: "../assets/audio/HumanBattle_Strike.mp3", volume: 0.8, category: "battle_sfx" },
+          { key: "ai_strike", label: "AI Battle Strike", path: "../assets/audio/AiBattle_Strike.mp3", volume: 0.5, category: "battle_sfx" },
+          { key: "sentinel", label: "Sentinel Move", path: "../assets/audio/sentinel-footsteps.mp3", volume: 0.7, category: "board_move" },
+          { key: "vanguard", label: "Vanguard Move", path: "../assets/audio/vanguard-walk.mp3", volume: 0.5, category: "board_move" },
+          { key: "pathfinder", label: "Pathfinder Move", path: "../assets/audio/pathfinder-walk.wav", volume: 0.4, category: "board_move" },
+          { key: "bulwark", label: "Bulwark Move", path: "../assets/audio/bulwark-walk.wav", volume: 0.07, category: "board_move" },
+          { key: "paragon", label: "Paragon Move", path: "../assets/audio/Paragon-walk.mp3", volume: 1, category: "board_move" },
+          { key: "freeborn", label: "Freeborn Move", path: "../assets/audio/Freeborn_walk.mp3", volume: 1, category: "board_move" },
+          { key: "drone", label: "Drone Move", path: "../assets/audio/drone-hover.mp3", volume: 0.47, category: "board_move" },
+          { key: "interceptor", label: "Interceptor Move", path: "../assets/audio/Interceptor-walk.mp3", volume: 0.27, category: "board_move" },
+          { key: "oracle", label: "Oracle Move", path: "../assets/audio/oracle-walk.mp3", volume: 0.5, category: "board_move" },
+          { key: "citadel", label: "Citadel Move", path: "../assets/audio/citadel-walk.wav", volume: 0.1, category: "board_move" },
+          { key: "nexus", label: "Nexus Move", path: "../assets/audio/nexus-walk.wav", volume: 0.14, category: "board_move" },
+          { key: "prime", label: "Prime Move", path: "../assets/audio/Prime_walk.mp3", volume: 0.7, category: "board_move" }
+        ];
+
+        const statusNode = document.getElementById("status");
+        const outputNode = document.getElementById("output");
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+        function toDb(value) {
+          return 20 * Math.log10(Math.max(value, 1e-12));
+        }
+
+        function percentile(values, ratio) {
+          if (!values.length) {
+            return null;
+          }
+          const sorted = values.slice().sort((a, b) => a - b);
+          const index = (sorted.length - 1) * ratio;
+          const low = Math.floor(index);
+          const high = Math.ceil(index);
+          if (low === high) {
+            return sorted[low];
+          }
+          const mix = index - low;
+          return sorted[low] * (1 - mix) + sorted[high] * mix;
+        }
+
+        function median(values) {
+          return percentile(values, 0.5);
+        }
+
+        function mixToMono(buffer, tailSeconds) {
+          const frameCount = buffer.length;
+          const keepFrames = tailSeconds ? Math.min(frameCount, Math.round(tailSeconds * buffer.sampleRate)) : frameCount;
+          const startFrame = frameCount - keepFrames;
+          const mono = new Float32Array(keepFrames);
+          for (let channelIndex = 0; channelIndex < buffer.numberOfChannels; channelIndex += 1) {
+            const channel = buffer.getChannelData(channelIndex);
+            for (let frameIndex = 0; frameIndex < keepFrames; frameIndex += 1) {
+              mono[frameIndex] += channel[startFrame + frameIndex] / buffer.numberOfChannels;
+            }
+          }
+          return mono;
+        }
+
+        function analyzeSamples(samples, sampleRate) {
+          const windowSize = Math.max(1, Math.round(sampleRate * 0.05));
+          const windowRms = [];
+          const windowDb = [];
+          let peak = 0;
+          let squareSum = 0;
+
+          for (let index = 0; index < samples.length; index += 1) {
+            const value = samples[index];
+            const absValue = Math.abs(value);
+            peak = Math.max(peak, absValue);
+            squareSum += value * value;
+          }
+
+          for (let offset = 0; offset < samples.length; offset += windowSize) {
+            const end = Math.min(samples.length, offset + windowSize);
+            if (end <= offset) {
+              continue;
+            }
+            let localSum = 0;
+            for (let index = offset; index < end; index += 1) {
+              const value = samples[index];
+              localSum += value * value;
+            }
+            const rms = Math.sqrt(localSum / (end - offset));
+            windowRms.push(rms);
+            windowDb.push(toDb(rms));
+          }
+
+          const p95 = percentile(windowDb, 0.95);
+          const gate = Math.max(-55, (p95 === null ? -55 : p95) - 20);
+          const activeWindows = windowRms.filter((value, index) => windowDb[index] >= gate);
+          const activeEnergy = activeWindows.length
+            ? activeWindows.reduce((sum, value) => sum + value * value, 0) / activeWindows.length
+            : squareSum / Math.max(samples.length, 1);
+          const activeRms = Math.sqrt(activeEnergy);
+          const overallRms = Math.sqrt(squareSum / Math.max(samples.length, 1));
+
+          return {
+            duration: samples.length / sampleRate,
+            peakDb: toDb(peak),
+            overallRmsDb: toDb(overallRms),
+            activeRmsDb: toDb(activeRms)
+          };
+        }
+
+        async function analyzeAsset(asset) {
+          const response = await fetch(asset.path);
+          if (!response.ok) {
+            throw new Error(asset.path + " failed with " + response.status);
+          }
+          const arrayBuffer = await response.arrayBuffer();
+          const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+          const samples = mixToMono(decodedBuffer, asset.tailSeconds);
+          const metrics = analyzeSamples(samples, decodedBuffer.sampleRate);
+          const effectiveActiveDb = metrics.activeRmsDb + toDb(asset.volume);
+          return {
+            key: asset.key,
+            label: asset.label,
+            path: asset.path,
+            category: asset.category,
+            volume: asset.volume,
+            duration: Number(metrics.duration.toFixed(3)),
+            rawActiveDb: Number(metrics.activeRmsDb.toFixed(2)),
+            rawOverallDb: Number(metrics.overallRmsDb.toFixed(2)),
+            peakDb: Number(metrics.peakDb.toFixed(2)),
+            effectiveActiveDb: Number(effectiveActiveDb.toFixed(2))
+          };
+        }
+
+        function renderResults(results) {
+          const categories = ["music", "ui_sfx", "battle_sfx", "board_move"];
+          const sections = categories.map((category) => {
+            const group = results.filter((item) => item.category === category);
+            const medianEffective = median(group.map((item) => item.effectiveActiveDb));
+            const lines = [];
+            lines.push("## " + category + " median_effective=" + medianEffective.toFixed(2) + " dB");
+            group
+              .slice()
+              .sort((left, right) => right.effectiveActiveDb - left.effectiveActiveDb)
+              .forEach((item) => {
+                const delta = item.effectiveActiveDb - medianEffective;
+                const flag = delta > 1.5 ? "HOT" : delta < -1.5 ? "LOW" : "OK ";
+                const paddedLabel = (item.label + "                              ").slice(0, 30);
+                lines.push(
+                  paddedLabel +
+                    " eff=" +
+                    item.effectiveActiveDb.toFixed(2).padStart(6) +
+                    "dB raw=" +
+                    item.rawActiveDb.toFixed(2).padStart(6) +
+                    "dB peak=" +
+                    item.peakDb.toFixed(2).padStart(6) +
+                    "dB vol=" +
+                    item.volume.toFixed(2).padStart(4) +
+                    " delta=" +
+                    (delta >= 0 ? "+" : "") +
+                    delta.toFixed(2).padStart(5) +
+                    " " +
+                    flag
+                );
+              });
+            return lines.join("\n");
+          });
+
+          outputNode.textContent = sections.join("\n\n") + "\n\n## json\n" + JSON.stringify(results, null, 2);
+        }
+
+        try {
+          const results = [];
+          for (let index = 0; index < assets.length; index += 1) {
+            const asset = assets[index];
+            statusNode.textContent = "Analyzing " + (index + 1) + "/" + assets.length + ": " + asset.label;
+            results.push(await analyzeAsset(asset));
+          }
+          window.__audioAuditResults = results;
+          renderResults(results);
+          statusNode.dataset.state = "done";
+          statusNode.textContent = "Analysis complete for " + results.length + " assets";
+        } catch (error) {
+          statusNode.dataset.state = "error";
+          statusNode.textContent = "Analysis failed";
+          outputNode.textContent = (error && error.stack) || String(error);
+          throw error;
+        } finally {
+          audioContext.close().catch(function () {});
+        }
+      })();
+    </script>
+  </body>
+</html>
